@@ -4,87 +4,102 @@ const width = 900 - margin.left - margin.right;
 const height = 400 - margin.top - margin.bottom;
 
 // Create SVG containers for both charts
-const svg1 = d3.select("#lineChart1") // If you change this ID, you must change it in index.html too
+const svg1_RENAME = d3.select("#lineChart1") // If you change this ID, you must change it in index.html too
     .append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
     .append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
-
-const svg2 = d3.select("#lineChart2")
-    .append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-    .append("g")
-    .attr("transform", `translate(${margin.left},${margin.top})`);
-
-// (If applicable) Tooltip element for interactivity
-const tooltip = d3.select("body")
-    .append("div")
-    .attr("class", "tooltip")
-    .style("opacity", 0);
 
 // 2.a: LOAD...
 d3.csv("aircraft_incidents.csv").then(data => {
     // 2.b: ... AND TRANSFORM DATA
-    data.forEach(d => {
-        d.Date = new Date(d.Date); // Parse date
-        d.Fatalities = +d.Fatalities; // Convert to number
-        d.Injuries = +d.Injuries; // Convert to number
-    });
+    
+    // Extract year and count accidents per year
+    let accidentsByYear = d3.rollup(
+        data,
+        v => v.length,
+        d => new Date(d.Date).getFullYear()
+    );
+
+    let processedData = Array.from(accidentsByYear, ([year, count]) => ({ year: new Date(year, 0, 1), count }));
+    processedData.sort((a, b) => a.year - b.year);
 
     // 3.a: SET SCALES FOR CHART 1
-    const x1 = d3.scaleTime()
-        .domain(d3.extent(data, d => d.Date))
+    const xScale = d3.scaleTime()
+        .domain(d3.extent(processedData, d => d.year))
         .range([0, width]);
-
-    const y1 = d3.scaleLinear()
-        .domain([0, d3.max(data, d => d.Fatalities)])
+    
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(processedData, d => d.count)])
         .range([height, 0]);
 
     // 4.a: PLOT DATA FOR CHART 1
-    svg1.append("path")
-        .datum(data)
+    svg1_RENAME.append("path")
+        .datum(processedData)
         .attr("fill", "none")
         .attr("stroke", "steelblue")
         .attr("stroke-width", 2)
         .attr("d", d3.line()
-            .x(d => x1(d.Date))
-            .y(d => y1(d.Fatalities))
+            .x(d => xScale(d.year))
+            .y(d => yScale(d.count))
         );
 
     // 5.a: ADD AXES FOR CHART 1
-    svg1.append("g")
+    svg1_RENAME.append("g")
         .attr("transform", `translate(0,${height})`)
-        .call(d3.axisBottom(x1));
+        .call(d3.axisBottom(xScale)
+        .tickValues(d3.range(d3.min(processedData, d => d.year.getFullYear()), d3.max(processedData, d => d.year.getFullYear()) + 1, 5).map(y => new Date(y, 0, 1)))
+        .tickFormat(d3.timeFormat("%Y"))
+        )
+        .selectAll("text")
+        .style("text-anchor", "end")
+        .attr("dx", "-0.8em")
+        .attr("dy", "0.15em")
+        .attr("transform", "rotate(-45)");
 
-    svg1.append("g")
-        .call(d3.axisLeft(y1));
+    svg1_RENAME.append("g")
+        .call(d3.axisLeft(yScale));
 
     // 6.a: ADD LABELS FOR CHART 1
-    svg1.append("text")
+    svg1_RENAME.append("text")
         .attr("x", width / 2)
-        .attr("y", -10)
+        .attr("y", height + margin.bottom - 10)
         .attr("text-anchor", "middle")
-        .style("font-size", "16px")
-        .text("Fatalities Over Time");
+        .text("Year");
+    
+    svg1_RENAME.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("x", -height / 2)
+        .attr("y", -margin.left + 15)
+        .attr("text-anchor", "middle")
+        .text("Number of Accidents");
 
     // 7.a: ADD INTERACTIVITY FOR CHART 1
-    svg1.selectAll("circle")
-        .data(data)
-        .enter()
-        .append("circle")
-        .attr("cx", d => x1(d.Date))
-        .attr("cy", d => y1(d.Fatalities))
-        .attr("r", 3)
-        .attr("fill", "steelblue")
+    const tooltip = d3.select("body").append("div")
+        .style("position", "absolute")
+        .style("background", "#fff")
+        .style("padding", "5px")
+        .style("border", "1px solid #000")
+        .style("border-radius", "5px")
+        .style("visibility", "hidden");
+
+    svg1_RENAME.selectAll("circle")
+        .data(processedData)
+        .enter().append("circle")
+        .attr("cx", d => xScale(d.year))
+        .attr("cy", d => yScale(d.count))
+        .attr("r", 5)
+        .attr("fill", "red")
         .on("mouseover", (event, d) => {
-            tooltip.transition().duration(200).style("opacity", .9);
-            tooltip.html(`Date: ${d.Date.toLocaleDateString()}<br>Fatalities: ${d.Fatalities}`)
-                .style("left", (event.pageX + 5) + "px")
-                .style("top", (event.pageY - 28) + "px");
+            tooltip.style("visibility", "visible")
+                .text(`${d.year.getFullYear()}: ${d.count} accidents`)
+                .style("left", `${event.pageX + 5}px`)
+                .style("top", `${event.pageY - 20}px`);
         })
-        .on("mouseout", () => tooltip.transition().duration(500).style("opacity", 0));
+        .on("mouseout", () => tooltip.style("visibility", "hidden"));
+});
+
 
     // ==========================================
     //         CHART 2 (if applicable)
@@ -142,4 +157,3 @@ d3.csv("aircraft_incidents.csv").then(data => {
                 .style("top", (event.pageY - 28) + "px");
         })
         .on("mouseout", () => tooltip.transition().duration(500).style("opacity", 0));
-});
