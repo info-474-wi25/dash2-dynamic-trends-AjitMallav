@@ -15,19 +15,22 @@
         <p><strong>Documentation:</strong> <a href="YOUR LINK HERE" target="_blank">Edit link in "index.html" on line 13. Give your document "Viewer" access to UW in share settings.</a></p>
     </div>
     
-    <!-- INTERACTIVE WIDGETS -->
-    <div class="item horizontal-container">
-        <div class="item"><!-- Your widget 1 code goes here. -->
-            <!-- Widget 1 title -->
-            <!-- Widget 1 element -->
-        </div>
-
-        <!-- DELETE THE FOLLOWING DIV IF YOU ONLY HAVE 1 WIDGET. -->
-        <div class="item"><!-- Your widget 2 code goes here. -->
-            <!-- Widget 2 title -->
-            <!-- Widget 2 element -->
-        </div>
+<!-- INTERACTIVE WIDGETS -->
+<div class="item horizontal-container">
+    <!-- Toggle Trendline Checkbox -->
+    <div class="item">
+        <label for="trendlineToggle">Show Trendline:</label>
+        <input type="checkbox" id="trendlineToggle">
     </div>
+
+    <!-- Dropdown for Selecting an Airline -->
+    <div class="item">
+        <label for="airlineDropdown">Filter by Airline:</label>
+        <select id="airlineDropdown">
+            <option value="all">All Airlines</option>
+        </select>
+    </div>
+</div>
 
     <!-- CHART(S) -->
     <div class="item chart-container">

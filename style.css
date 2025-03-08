@@ -7,8 +7,10 @@
 
 body {
     font-family: 'Arial', sans-serif;
-    padding: 20px;
     background-color: #f4f4f4;
+    color: #333;
+    padding: 20px;
+    line-height: 1.6;
 }
 
 /* Vertical Container Layout */
@@ -16,34 +18,37 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 20px;
 }
 
-/* Heading and Item Section */
-.item {
-    margin-bottom: 20px;
+/* Common Styling for Sections */
+.item, .chart-container {
     width: 100%;
     max-width: 960px;
     padding: 20px;
     background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
+/* Typography */
 h1 {
     font-size: 2rem;
+    color: #2c3e50;
     margin-bottom: 10px;
-    color: #333;
+    text-align: center;
 }
 
 h2 {
     font-size: 1.5rem;
+    color: #34495e;
     margin-bottom: 15px;
-    color: #333;
 }
 
 p {
     font-size: 1rem;
     margin-bottom: 10px;
+    color: #555;
 }
 
 strong {
@@ -53,60 +58,39 @@ strong {
 a {
     color: #3498db;
     text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease-in-out;
 }
 
 a:hover {
     text-decoration: underline;
+    color: #2980b9;
 }
 
-/* Widget Section (Horizontal layout for widgets) */
+/* Widget Section (Flexible Layout) */
 .horizontal-container {
     display: flex;
     justify-content: space-between;
-    gap: 20px; /* Replaces margin-right for consistent spacing */
+    gap: 20px;
     width: 100%;
     max-width: 960px;
-    margin-bottom: 20px;
     padding-top: 40px;
+    flex-wrap: wrap; /* Allows wrapping on smaller screens */
 }
 
 .horizontal-container .item {
     flex: 1;
-    background-color: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    min-width: 280px;
 }
 
-/* Chart Container */
+/* Chart Styling */
 .chart-container {
-    width: 100%;
-    max-width: 960px;
-    margin-bottom: 20px;
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
-/* SVG Styling */
-.chart-container svg {
-    display: block;
-    margin: 0 auto;
-    width: 100%;
-}
-
-/* Axis label styling */
-.axis-label {
-    font-size: 12px;
-    fill: #666;
-    text-anchor: middle;
-}
-
-/* Responsive adjustments */
+/* Responsive Design */
 @media (max-width: 768px) {
     .item {
         padding: 15px;
@@ -126,12 +110,24 @@ a:hover {
     }
 
     .horizontal-container .item {
-        margin-bottom: 10px;
-    }
-
-    .horizontal-container .item:last-child {
-        margin-bottom: 0;
+        margin-bottom: 15px;
     }
 }
 
-/* CSS generated with assistance from ChatGPT and DeepSeek. */
+/* Subtle Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.item, .chart-container {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+/* CSS enhanced with modern UI/UX principles */

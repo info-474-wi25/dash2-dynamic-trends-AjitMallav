@@ -4,21 +4,21 @@ const width = 900 - margin.left - margin.right;
 const height = 400 - margin.top - margin.bottom;
 
 // Create SVG containers for both charts
-const svg1 = d3.select("#lineChart1") // First chart container
+const svg1 = d3.select("#lineChart1")
     .append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
     .append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
-const svg2 = d3.select("#lineChart2") // Second chart container - make sure to add this div to your HTML
+const svg2 = d3.select("#lineChart2")
     .append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
     .append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
-// Create tooltip div for both charts
+// Create tooltip div
 const tooltip = d3.select("body").append("div")
     .attr("class", "tooltip")
     .style("position", "absolute")
@@ -31,23 +31,139 @@ const tooltip = d3.select("body").append("div")
 
 // 2.a: LOAD DATA
 d3.csv("aircraft_incidents.csv").then(data => {
-    // 2.b: TRANSFORM DATA FOR CHART 1
-    
-    // Parse dates
+    // Parse date values
     data.forEach(d => {
         d.Date = new Date(d.Date);
+        d.InjurySeverity = +d.InjurySeverity || 0; // Handle missing or invalid values
     });
-    
-    // Extract year and count accidents per year
-    let accidentsByYear = d3.rollup(
-        data,
-        v => v.length,
-        d => d.Date.getFullYear()
-    );
 
-    let processedData = Array.from(accidentsByYear, ([year, count]) => ({ year: new Date(year, 0, 1), count }));
+    // Group data by year for the line chart
+    let accidentsByYear = d3.rollup(data, v => v.length, d => d.Date.getFullYear());
+    let processedData = Array.from(accidentsByYear, ([year, count]) => ({
+        year: new Date(year, 0, 1),
+        count
+    }));
     processedData.sort((a, b) => a.year - b.year);
 
+    // Scales for line chart
+    const xScale = d3.scaleTime()
+        .domain(d3.extent(processedData, d => d.year))
+        .range([0, width]);
+
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(processedData, d => d.count) * 1.1])
+        .range([height, 0]);
+
+    // Draw line chart
+    svg1.append("path")
+        .datum(processedData)
+        .attr("fill", "none")
+        .attr("stroke", "steelblue")
+        .attr("stroke-width", 2)
+        .attr("d", d3.line()
+            .x(d => xScale(d.year))
+            .y(d => yScale(d.count))
+        );
+
+    // Add Axes
+    svg1.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%Y")));
+
+    svg1.append("g").call(d3.axisLeft(yScale));
+
+    // Add tooltip interaction
+    svg1.selectAll("circle")
+        .data(processedData)
+        .enter().append("circle")
+        .attr("cx", d => xScale(d.year))
+        .attr("cy", d => yScale(d.count))
+        .attr("r", 5)
+        .attr("fill", "steelblue")
+        .on("mouseover", (event, d) => {
+            tooltip.transition().duration(200).style("opacity", 0.9);
+            tooltip.html(`${d.year.getFullYear()}: ${d.count} accidents`)
+                .style("left", `${event.pageX + 5}px`)
+                .style("top", `${event.pageY - 28}px`);
+        })
+        .on("mouseout", () => {
+            tooltip.transition().duration(500).style("opacity", 0);
+        });
+
+    // TRENDLINE (Toggle)
+    const trendline = svg1.append("line")
+        .attr("stroke", "red")
+        .attr("stroke-width", 2)
+        .style("opacity", 0);
+
+    d3.select("#toggleTrendline").on("click", function () {
+        const isVisible = trendline.style("opacity") == 1;
+        trendline.style("opacity", isVisible ? 0 : 1);
+    });
+
+    // BAR CHART - Injury Severity per Country
+    let injuryByCountry = d3.rollup(
+        data,
+        v => d3.mean(v, d => +d.InjurySeverity),
+        d => d.Country
+    );
+    let countryData = Array.from(injuryByCountry, ([country, severity]) => ({
+        country,
+        severity: severity || 0
+    }));
+
+    countryData.sort((a, b) => d3.ascending(a.country, b.country));
+
+    // Scales for bar chart
+    const xScale2 = d3.scaleBand()
+        .domain(countryData.map(d => d.country))
+        .range([0, width])
+        .padding(0.2);
+
+    const yScale2 = d3.scaleLinear()
+        .domain([0, d3.max(countryData, d => d.severity) * 1.1])
+        .range([height, 0]);
+
+    // Draw bars
+    const bars = svg2.selectAll("rect")
+        .data(countryData)
+        .enter().append("rect")
+        .attr("x", d => xScale2(d.country))
+        .attr("y", d => yScale2(d.severity))
+        .attr("width", xScale2.bandwidth())
+        .attr("height", d => height - yScale2(d.severity))
+        .attr("fill", "steelblue");
+
+    // Axes for bar chart
+    svg2.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(xScale2))
+        .selectAll("text")
+        .attr("transform", "rotate(-45)")
+        .style("text-anchor", "end");
+
+    svg2.append("g").call(d3.axisLeft(yScale2));
+
+    // Dropdown functionality
+    d3.select("#countryDropdown").on("change", function () {
+        let selectedCountry = this.value;
+        let filteredData = countryData.filter(d => d.country === selectedCountry);
+
+        bars.data(filteredData, d => d.country)
+            .transition()
+            .duration(500)
+            .attr("y", d => yScale2(d.severity))
+            .attr("height", d => height - yScale2(d.severity));
+    });
+
+    // Populate dropdown
+    d3.select("#countryDropdown")
+        .selectAll("option")
+        .data(countryData.map(d => d.country))
+        .enter()
+        .append("option")
+        .text(d => d);
+    });
     // 3.a: SET SCALES FOR CHART 1
     const xScale = d3.scaleTime()
         .domain(d3.extent(processedData, d => d.year))
@@ -136,7 +252,7 @@ d3.csv("aircraft_incidents.csv").then(data => {
     svg1.append("g")
         .attr("class", "grid")
         .selectAll("line")
-        .data(yScale.ticks())
+        .data   (yScale.ticks())
         .enter()
         .append("line")
         .attr("x1", 0)
@@ -253,4 +369,3 @@ d3.csv("aircraft_incidents.csv").then(data => {
                 .duration(500)
                 .style("opacity", 0);
         });
-});
