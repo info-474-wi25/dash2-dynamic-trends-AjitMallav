@@ -1,4 +1,4 @@
-/* General Layout Reset */
+/* General Reset */
 * {
     margin: 0;
     padding: 0;
@@ -7,13 +7,13 @@
 
 body {
     font-family: 'Arial', sans-serif;
-    background-color: #f4f4f4;
+    background-color: #f8f9fa;
     color: #333;
     padding: 20px;
     line-height: 1.6;
 }
 
-/* Vertical Container Layout */
+/* Flex Container Layout */
 .vertical-container {
     display: flex;
     flex-direction: column;
@@ -21,22 +21,28 @@ body {
     gap: 20px;
 }
 
-/* Common Styling for Sections */
+/* Common Card Styling */
 .item, .chart-container {
     width: 100%;
     max-width: 960px;
     padding: 20px;
-    background-color: #fff;
+    background: #ffffff;
     border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.item:hover, .chart-container:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
 }
 
 /* Typography */
 h1 {
-    font-size: 2rem;
+    font-size: 2.2rem;
     color: #2c3e50;
-    margin-bottom: 10px;
     text-align: center;
+    margin-bottom: 10px;
 }
 
 h2 {
@@ -55,6 +61,7 @@ strong {
     font-weight: 700;
 }
 
+/* Links */
 a {
     color: #3498db;
     text-decoration: none;
@@ -63,19 +70,18 @@ a {
 }
 
 a:hover {
-    text-decoration: underline;
     color: #2980b9;
+    text-decoration: underline;
 }
 
-/* Widget Section (Flexible Layout) */
+/* Horizontal Layout (Flexible for Widgets) */
 .horizontal-container {
     display: flex;
     justify-content: space-between;
     gap: 20px;
     width: 100%;
     max-width: 960px;
-    padding-top: 40px;
-    flex-wrap: wrap; /* Allows wrapping on smaller screens */
+    flex-wrap: wrap;
 }
 
 .horizontal-container .item {
@@ -83,7 +89,7 @@ a:hover {
     min-width: 280px;
 }
 
-/* Chart Styling */
+/* Charts */
 .chart-container {
     display: flex;
     flex-direction: column;
@@ -101,7 +107,7 @@ a:hover {
     }
 
     h2 {
-        font-size: 1.25rem;
+        font-size: 1.3rem;
     }
 
     .horizontal-container {
@@ -114,7 +120,7 @@ a:hover {
     }
 }
 
-/* Subtle Animations */
+/* Smooth Fade-in  */
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -129,5 +135,3 @@ a:hover {
 .item, .chart-container {
     animation: fadeIn 0.5s ease-in-out;
 }
-
-/* CSS enhanced with modern UI/UX principles */

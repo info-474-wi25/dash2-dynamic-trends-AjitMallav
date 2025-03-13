@@ -200,7 +200,6 @@ function drawLineChart(data) {
         .attr("text-anchor", "middle")
         .style("font-size", "22px")
         .style("font-weight", "bold")
-        .text("Accidents per Year");
 
     // Add X axis label
     svgLine.append("text")
@@ -307,7 +306,6 @@ function drawBarChart(data) {
         .attr("text-anchor", "middle")
         .style("font-size", "22px")
         .style("font-weight", "bold")
-        .text("Injury Severity per Country");
 
     // Add X axis label
     svgBar.append("text")
