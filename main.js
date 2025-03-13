@@ -16,7 +16,7 @@ const svgBar = d3.select("#barChart")
     .append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
-    .append("g")
+    .append("g")    
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
 // Create tooltip
@@ -33,48 +33,138 @@ const tooltip = d3.select("body").append("div")
 
 // Load CSV data
 d3.csv("aircraft_incidents.csv").then(data => {
-    // Process data
-    data.forEach(d => {
-        d.Date = new Date(d.Date);
-        d.InjurySeverity = +d.InjurySeverity || 0; // Ensure InjurySeverity is a number
+    // Add debug info
+    const debugInfo = d3.select("#debug-info");
+    debugInfo.style("display", "block");
+    debugInfo.append("h3").text("Debug Information");
+    
+    // Log initial data sample
+    debugInfo.append("p").text(`CSV loaded with ${data.length} rows`);
+    if (data.length > 0) {
+        debugInfo.append("p").text(`First row sample: ${JSON.stringify(data[0])}`);
+    }
+    
+    // Process data - parse dates to ensure they're valid
+    let validDateCount = 0;
+    data.forEach((d, i) => {
+        if (d.Date) {
+            const parsedDate = new Date(d.Date);
+            if (!isNaN(parsedDate.getTime())) {
+                d.Date = parsedDate;
+                validDateCount++;
+            } else {
+                console.warn(`Invalid date at row ${i}: ${d.Date}`);
+                d.Date = new Date(2000, 0, 1);
+            }
+        } else {
+            console.warn(`Missing date at row ${i}`);
+            d.Date = new Date(2000, 0, 1);
+        }
+        d.InjurySeverity = +d.InjurySeverity || 0;
     });
+    
+    debugInfo.append("p").text(`Valid dates found: ${validDateCount} of ${data.length}`);
 
-    // Filter data to reduce the number of accidents (e.g., only include the first 100 entries)
     const filteredData = data.slice(0, 100);
+    
+    if (filteredData.length < 5) {
+        debugInfo.append("p").text("WARNING: Not enough data, creating sample data");
+        for (let i = 0; i < 5; i++) {
+            filteredData.push({
+                Date: new Date(2018 + i, 0, 1),
+                InjurySeverity: 50 - i * 10,
+                Country: `Country${i}`
+            });
+        }
+    }
 
     // Group data by year for the line chart
-    let accidentsByYear = d3.rollup(filteredData, v => v.length, d => d.Date.getFullYear());
-    let lineChartData = Array.from(accidentsByYear, ([year, count]) => ({
-        year: new Date(year, 0, 1),
-        count
+    const yearGroups = {};
+    filteredData.forEach(d => {
+        const year = d.Date.getFullYear();
+        if (!yearGroups[year]) {
+            yearGroups[year] = [];
+        }
+        yearGroups[year].push(d);
+    });
+    
+    let lineChartData = Object.entries(yearGroups).map(([year, values]) => ({
+        year: new Date(parseInt(year), 0, 1),
+        count: values.length
     }));
+    
     lineChartData.sort((a, b) => a.year - b.year);
+    
+    debugInfo.append("p").text(`Line chart data points: ${lineChartData.length}`);
+    debugInfo.append("pre").text(JSON.stringify(lineChartData, null, 2));
+    
+    if (lineChartData.length < 2) {
+        debugInfo.append("p").style("color", "red").text("WARNING: Not enough data points for line chart. Adding sample data.");
+        
+        if (lineChartData.length === 1) {
+            const existingYear = lineChartData[0].year.getFullYear();
+            const existingCount = lineChartData[0].count;
+            
+            for (let i = 1; i <= 3; i++) {
+                lineChartData.push({
+                    year: new Date(existingYear + i, 0, 1),
+                    count: Math.max(existingCount - (i * 10), 10)
+                });
+            }
+        } else {
+            for (let i = 0; i < 5; i++) {
+                lineChartData.push({
+                    year: new Date(2018 + i, 0, 1),
+                    count: 100 - (i * 15)
+                });
+            }
+        }
+        
+        lineChartData.sort((a, b) => a.year - b.year);
+        debugInfo.append("p").text("Updated line chart data:");
+        debugInfo.append("pre").text(JSON.stringify(lineChartData, null, 2));
+    }
 
-    // Group data by country for the bar chart and limit to top 5 countries
-    let injuryByCountry = d3.rollup(filteredData, v => d3.mean(v, d => d.InjurySeverity), d => d.Country);
-    let barChartData = Array.from(injuryByCountry, ([country, severity]) => ({
+    // Group data by country for the bar chart
+    let injuryByCountry = {};
+    filteredData.forEach(d => {
+        if (d.Country && d.Country.trim() !== "") {
+            if (!injuryByCountry[d.Country]) {
+                injuryByCountry[d.Country] = [];
+            }
+            injuryByCountry[d.Country].push(d.InjurySeverity);
+        }
+    });
+    
+    let barChartData = Object.entries(injuryByCountry).map(([country, values]) => ({
         country,
-        severity: severity || 0
+        severity: values.length > 0 ? d3.mean(values) : 0
     }));
-    barChartData.sort((a, b) => b.severity - a.severity); // Sort by severity
-    barChartData = barChartData.slice(0, 5); // Limit to top 5 countries
-
-    // If all InjurySeverity values are 0, simulate some data for demonstration
+    
+    barChartData.sort((a, b) => b.severity - a.severity);
+    barChartData = barChartData.slice(0, 5);
+    
     if (barChartData.every(d => d.severity === 0)) {
-        console.warn("All InjurySeverity values are 0. Simulating data for demonstration.");
+        debugInfo.append("p").style("color", "red").text("WARNING: All severity values are 0. Creating sample data.");
         barChartData = barChartData.map((d, i) => ({
-            country: d.country,
-            severity: Math.random() * 100 // Random severity between 0 and 100
+            country: d.country || `Country ${i+1}`,
+            severity: 80 - (i * 15)
         }));
     }
+    
+    debugInfo.append("p").text(`Bar chart data points: ${barChartData.length}`);
+    debugInfo.append("pre").text(JSON.stringify(barChartData, null, 2));
 
     // Draw the line chart
     drawLineChart(lineChartData);
+    
     // Draw the bar chart
     drawBarChart(barChartData);
 
     // Add dropdown for country filtering
     const dropdown = d3.select("#countryDropdown");
+    dropdown.selectAll("*").remove();
+    
     dropdown.append("option")
         .attr("value", "all")
         .text("All Countries");
@@ -90,12 +180,20 @@ d3.csv("aircraft_incidents.csv").then(data => {
         const selectedValue = this.value;
         updateBarChart(barChartData, selectedValue);
     });
+
 }).catch(error => {
     console.error("Error loading the CSV data: ", error);
+    d3.select("#lineChart").append("div")
+        .style("color", "red")
+        .style("padding", "20px")
+        .style("font-weight", "bold")
+        .text("Error loading data: " + error.message);
 });
 
+// Function to draw the line chart
 function drawLineChart(data) {
-    // Set up scales
+    svgLine.selectAll("*").remove();
+    
     const xScale = d3.scaleTime()
         .domain(d3.extent(data, d => d.year))
         .range([0, width]);
@@ -103,16 +201,14 @@ function drawLineChart(data) {
     const yScale = d3.scaleLinear()
         .domain([0, d3.max(data, d => d.count) * 1.1])
         .range([height, 0]);
-
-    // Create axes
+    
     const xAxis = d3.axisBottom(xScale)
-        .ticks(d3.timeYear.every(1))
+        .ticks(data.length)
         .tickFormat(d3.timeFormat("%Y"));
 
     const yAxis = d3.axisLeft(yScale)
         .ticks(10);
 
-    // Add X axis
     svgLine.append("g")
         .attr("class", "x-axis")
         .attr("transform", `translate(0,${height})`)
@@ -121,14 +217,13 @@ function drawLineChart(data) {
         .style("text-anchor", "end")
         .attr("dx", "-.8em")
         .attr("dy", ".15em")
-        .attr("transform", "rotate(-45)");
+        .attr("transform", "rotate(-45)")
+        .style("font-size", "12px");
 
-    // Add Y axis
     svgLine.append("g")
         .attr("class", "y-axis")
         .call(yAxis);
 
-    // Add grid lines
     svgLine.append("g")
         .attr("class", "grid")
         .selectAll("line")
@@ -142,22 +237,19 @@ function drawLineChart(data) {
         .attr("stroke", "#e0e0e0")
         .attr("stroke-width", 1);
 
-    // Create line generator
-    const line = d3.line()
+    const lineGenerator = d3.line()
         .x(d => xScale(d.year))
         .y(d => yScale(d.count))
-        .curve(d3.curveMonotoneX);
+        .curve(d3.curveLinear);
 
-    // Add the line path
     svgLine.append("path")
         .datum(data)
         .attr("class", "line")
         .attr("fill", "none")
         .attr("stroke", "steelblue")
         .attr("stroke-width", 3)
-        .attr("d", line);
+        .attr("d", lineGenerator);
 
-    // Add data points
     svgLine.selectAll(".dot")
         .data(data)
         .enter()
@@ -192,67 +284,43 @@ function drawLineChart(data) {
                 .style("opacity", 0);
         });
 
-    // Add chart title
     svgLine.append("text")
         .attr("class", "chart-title")
         .attr("x", width / 2)
         .attr("y", -margin.top / 2)
         .attr("text-anchor", "middle")
-        .style("font-size", "22px")
+        .style("font-size", "16px")
         .style("font-weight", "bold")
-
-    // Add X axis label
-    svgLine.append("text")
-        .attr("class", "axis-label")
-        .attr("x", width / 2)
-        .attr("y", height + margin.bottom / 1.5)
-        .attr("text-anchor", "middle")
-        .style("font-size", "14px")
-        .text("Year");
-
-    // Add Y axis label
-    svgLine.append("text")
-        .attr("class", "axis-label")
-        .attr("transform", "rotate(-90)")
-        .attr("x", -height / 2)
-        .attr("y", -margin.left / 1.5)
-        .attr("text-anchor", "middle")
-        .style("font-size", "14px")
-        .text("Number of Accidents");
 }
 
+// Function to draw the bar chart
 function drawBarChart(data) {
-    // Set up scales
+    svgBar.selectAll("*").remove();
+    
     const xScale = d3.scaleBand()
         .domain(data.map(d => d.country))
         .range([0, width])
-        .padding(0.2);
-
+        .padding(0.1);
+    
     const yScale = d3.scaleLinear()
-        .domain([0, d3.max(data, d => d.severity) * 1.1])
+        .domain([0, d3.max(data, d => d.severity)])
         .range([height, 0]);
 
-    // Create axes
-    const xAxis = d3.axisBottom(xScale);
-    const yAxis = d3.axisLeft(yScale);
+    const xAxis = d3.axisBottom(xScale)
+        .tickSize(0);
 
-    // Add X axis
+    const yAxis = d3.axisLeft(yScale)
+        .ticks(10);
+
     svgBar.append("g")
         .attr("class", "x-axis")
         .attr("transform", `translate(0,${height})`)
-        .call(xAxis)
-        .selectAll("text")
-        .style("text-anchor", "end")
-        .attr("dx", "-.8em")
-        .attr("dy", ".15em")
-        .attr("transform", "rotate(-45)");
+        .call(xAxis);
 
-    // Add Y axis
     svgBar.append("g")
         .attr("class", "y-axis")
         .call(yAxis);
 
-    // Add grid lines
     svgBar.append("g")
         .attr("class", "grid")
         .selectAll("line")
@@ -266,7 +334,6 @@ function drawBarChart(data) {
         .attr("stroke", "#e0e0e0")
         .attr("stroke-width", 1);
 
-    // Add bars
     svgBar.selectAll(".bar")
         .data(data)
         .enter()
@@ -285,7 +352,7 @@ function drawBarChart(data) {
                 .duration(200)
                 .style("opacity", 0.9);
             
-            tooltip.html(`<strong>Country:</strong> ${d.country}<br><strong>Severity:</strong> ${d.severity.toFixed(1)}`)
+            tooltip.html(`<strong>Country:</strong> ${d.country}<br><strong>Average Severity:</strong> ${d.severity}`)
                 .style("left", (event.pageX + 10) + "px")
                 .style("top", (event.pageY - 28) + "px");
         })
@@ -298,84 +365,19 @@ function drawBarChart(data) {
                 .style("opacity", 0);
         });
 
-    // Add chart title
     svgBar.append("text")
         .attr("class", "chart-title")
         .attr("x", width / 2)
         .attr("y", -margin.top / 2)
         .attr("text-anchor", "middle")
-        .style("font-size", "22px")
+        .style("font-size", "16px")
         .style("font-weight", "bold")
-
-    // Add X axis label
-    svgBar.append("text")
-        .attr("class", "axis-label")
-        .attr("x", width / 2)
-        .attr("y", height + margin.bottom / 1.5)
-        .attr("text-anchor", "middle")
-        .style("font-size", "14px")
-        .text("Country");
-
-    // Add Y axis label
-    svgBar.append("text")
-        .attr("class", "axis-label")
-        .attr("transform", "rotate(-90)")
-        .attr("x", -height / 2)
-        .attr("y", -margin.left / 1.5)
-        .attr("text-anchor", "middle")
-        .style("font-size", "14px")
-        .text("Injury Severity");
 }
 
-function updateBarChart(data, selectedValue) {
-    const xScale = d3.scaleBand()
-        .domain(data.map(d => d.country))
-        .range([0, width])
-        .padding(0.2);
-
-    const yScale = d3.scaleLinear()
-        .domain([0, d3.max(data, d => d.severity) * 1.1])
-        .range([height, 0]);
-
-    const bars = svgBar.selectAll(".bar")
-        .data(data);
-
-    bars.enter()
-        .append("rect")
-        .attr("class", "bar")
-        .attr("x", d => xScale(d.country))
-        .attr("y", d => yScale(d.severity))
-        .attr("width", xScale.bandwidth())
-        .attr("height", d => height - yScale(d.severity))
-        .attr("fill", "steelblue")
-        .on("mouseover", function(event, d) {
-            d3.select(this)
-                .attr("fill", "#ff7f0e");
-            
-            tooltip.transition()
-                .duration(200)
-                .style("opacity", 0.9);
-            
-            tooltip.html(`<strong>Country:</strong> ${d.country}<br><strong>Severity:</strong> ${d.severity.toFixed(1)}`)
-                .style("left", (event.pageX + 10) + "px")
-                .style("top", (event.pageY - 28) + "px");
-        })
-        .on("mouseout", function() {
-            d3.select(this)
-                .attr("fill", "steelblue");
-            
-            tooltip.transition()
-                .duration(500)
-                .style("opacity", 0);
-        });
-
-    if (selectedValue === "all") {
-        bars.transition()
-            .duration(500)
-            .style("opacity", 1);
-    } else {
-        bars.transition()
-            .duration(500)
-            .style("opacity", d => d.country === selectedValue ? 1 : 0.2);
-    }
+// Update the bar chart based on selected country
+function updateBarChart(data, selectedCountry) {
+    svgBar.selectAll(".bar")
+        .transition()
+        .duration(500)
+        .attr("fill", d => selectedCountry === "all" || d.country === selectedCountry ? "#ff7f0e" : "steelblue");
 }
